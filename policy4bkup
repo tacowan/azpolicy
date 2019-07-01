@@ -1,0 +1,143 @@
+{
+  "properties": {
+    "displayName": "Backup Matching VMs",
+    "policyType": "Custom",
+    "mode": "All",
+    "metadata": {
+      "category": "Backup",
+      "createdBy": "7458a4a2-1df8-49db-a6ec-1cc25b8134d8",
+      "createdOn": "2019-06-29T16:22:41.9843839Z",
+      "updatedBy": "7458a4a2-1df8-49db-a6ec-1cc25b8134d8",
+      "updatedOn": "2019-07-01T04:52:35.0517005Z"
+    },
+    "parameters": {
+      "backupPolicyName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "backupPolicyName",
+          "description": null
+        }
+      },
+      "vaultResourceGroup": {
+        "type": "String",
+        "metadata": {
+          "displayName": "vaultResourceGroup",
+          "description": null
+        }
+      },
+      "vaultName": {
+        "type": "String",
+        "metadata": {
+          "displayName": "vaultName",
+          "description": null
+        }
+      }
+    },
+    "policyRule": {
+      "if": {
+        "allof": [
+          {
+            "field": "type",
+            "equals": "Microsoft.Compute/virtualMachines"
+          },
+          {
+            "field": "tags.backup",
+            "equals": "yes"
+          }
+        ]
+      },
+      "then": {
+        "effect": "deployIfNotExists",
+        "details": {
+          "resourceGroupName": "[parameters('vaultResourceGroup')]",
+          "roleDefinitionIds": [
+            "/providers/microsoft.authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c"
+          ],
+          "type": "Microsoft.RecoveryServices/backupprotecteditems",
+          "existenceCondition": {
+            "field": "name",
+            "like": "*"
+          },
+          "deployment": {
+            "properties": {
+              "mode": "incremental",
+              "template": {
+                "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                "contentVersion": "1.0.0.0",
+                "parameters": {
+                  "vaultName": {
+                    "type": "String"
+                  },
+                  "vaultRG": {
+                    "type": "String"
+                  },
+                  "policyName": {
+                    "type": "String",
+                    "defaultValue": "DefaultPolicy"
+                  },
+                  "fabricName": {
+                    "type": "String"
+                  },
+                  "protectionContainers": {
+                    "type": "Array"
+                  },
+                  "protectedItems": {
+                    "type": "Array"
+                  },
+                  "sourceResourceIds": {
+                    "type": "Array"
+                  }
+                },
+                "resources": [
+                  {
+                    "type": "Microsoft.RecoveryServices/vaults/backupFabrics/protectionContainers/protectedItems",
+                    "name": "[concat(parameters('vaultName'), '/', parameters('fabricName'), '/',parameters('protectionContainers')[copyIndex()], '/', parameters('protectedItems')[copyIndex()])]",
+                    "apiVersion": "2016-06-01",
+                    "copy": {
+                      "name": "protectedItemsCopy",
+                      "count": "[length(parameters('protectedItems'))]"
+                    },
+                    "properties": {
+                      "protectedItemType": "Microsoft.Compute/virtualMachines",
+                      "policyId": "[resourceId(parameters('vaultRG'),'Microsoft.RecoveryServices/vaults/backupPolicies', parameters('vaultName'), parameters('policyName'))]",
+                      "sourceResourceId": "[parameters('sourceResourceIds')[copyIndex()]]"
+                    }
+                  }
+                ]
+              },
+              "parameters": {
+                "vaultName": {
+                  "value": "[parameters('vaultName')]"
+                },
+                "vaultRG": {
+                  "value": "[parameters('vaultResourceGroup')]"
+                },
+                "policyName": {
+                  "value": "[parameters('backupPolicyName')]"
+                },
+                "fabricName": {
+                  "value": "Azure"
+                },
+                "protectionContainers": {
+                  "value": [
+                    "[concat('iaasvmcontainer;iaasvmcontainerv2;', resourceGroup().name, ';' ,field('name'))]"
+                  ]
+                },
+                "protectedItems": {
+                  "value": [
+                    "[concat('vm;iaasvmcontainerv2;', resourceGroup().name, ';' ,field('name'))]"
+                  ]
+                },
+                "sourceResourceIds": {
+                  "value": [
+                    "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Compute/virtualMachines/',field('name'))]"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
